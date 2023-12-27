@@ -22,7 +22,7 @@ internal class Program
         {
             Setup.command.Wait(300);
             Setup.player.UpdatePlayerStatus();
-            Console.WriteLine(Setup.player.PlayerMotion.Y);
+            Console.WriteLine(Setup.player.PlayerFallDistance);
         }
     }
 }
@@ -32,6 +32,7 @@ internal class PlayerStatus
     internal Position LatestPlayerPosition = new(0, 0, 0);
     internal Position LastPlayerPosition = new(0, 0, 0);
     internal Motion PlayerMotion = new(0, 0, 0);
+    internal double PlayerFallDistance { get; set; } = 0.0;
     internal string SelectedItemName { get; set; } = "minecraft:sand";
     internal bool SelectedItemIsUsed { get; set; } = false;
 
@@ -50,6 +51,7 @@ internal class PlayerStatus
     {
         UpdatePlayerPosition();
         UpdatePlayerMotion();
+        UpdatePlayerFallDistance();
     }
     private void UpdatePlayerPosition()
     {
@@ -64,11 +66,17 @@ internal class PlayerStatus
         // 更新前のインスタンスはGCで開放される
         LatestPlayerPosition = new Position(x, y, z);
     }
+
     private void UpdatePlayerMotion()
     {
         var mot = Setup.command.GetPlayerData(Setup.PlayerName).Motion;
         // 更新前のインスタンスはGCで開放される
         PlayerMotion = new Motion(mot.X, mot.Y, mot.Z);
+    }
+
+    private void UpdatePlayerFallDistance()
+    {
+        PlayerFallDistance = Setup.command.GetPlayerData(Setup.PlayerName).FallDistance;
     }
 }
 
