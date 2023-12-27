@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Text.RegularExpressions;
 using MinecraftConnection;
 
 internal class Setup
@@ -61,18 +60,11 @@ internal class PlayerStatus
         //前回値の保持
         LastPlayerPosition = LatestPlayerPosition;
 
-        string result = Setup.command.SendCommand("data get entity " + Setup.PlayerName + " Pos");
-        //2dice_K has the following entity data: [-11.571701293995853d, 119.0d, 8.65402181419403d]
-        //////座標を抽出//////
-        // 正規表現で数値を抜き出す([]内の文字列を抽出)
-        var regex = new Regex(@"\[(.+?)\]");
-        var match = regex.Match(result);
-        // カンマで分割
-        string[] parts = match.Groups[1].Value.Split(',');
+        var pos = Setup.command.GetPlayerData(Setup.PlayerName).Position;
         // 整数座標に変換(末尾のdを削除して丸め)
-        double x = Math.Floor(double.Parse(parts[0].TrimEnd('d')));
-        double y = Math.Floor(Double.Parse(parts[1].TrimEnd('d')));
-        double z = Math.Floor(Double.Parse(parts[2].TrimEnd('d')));
+        double x = Math.Floor(pos.X);
+        double y = Math.Floor(pos.Y);
+        double z = Math.Floor(pos.Z);
         // 更新前のインスタンスはGCで開放される
         LatestPlayerPosition = new Position(x, y, z);
     }
