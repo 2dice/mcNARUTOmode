@@ -23,7 +23,9 @@ internal class Program
         {
             Setup.command.Wait(300);
             Setup.player.UpdateStatus();
-            Console.WriteLine(Setup.player.SelectedItemIsUsed);
+            Console.WriteLine(Setup.player.NearestEnemyPosition.X);
+            Console.WriteLine(Setup.player.NearestEnemyPosition.Y);
+            Console.WriteLine(Setup.player.NearestEnemyPosition.Z);
         }
     }
 }
@@ -57,6 +59,7 @@ internal class PlayerStatus
         UpdatePlayerFallDistance();
         UpdatePlayerSelectedItem();
         UpdatePlayerSelectedItemUsed();
+        UpdateNearestEnemyPosition();
     }
     private void UpdatePlayerPosition()
     {
@@ -74,6 +77,7 @@ internal class PlayerStatus
 
     private void UpdatePlayerMotion()
     {
+        //TODO:Yデータだけでよければコマンドを2つ減らせる(xyz個別にサーバーに問い合わせているので
         var mot = Setup.command.GetPlayerData(Setup.PlayerName).Motion;
         // 更新前のインスタンスはGCで開放される
         Motion = new Motion(mot.X, mot.Y, mot.Z);
@@ -118,6 +122,21 @@ internal class PlayerStatus
             SelectedItemIsUsed = false;
         }
 
+    }
+
+    private void UpdateNearestEnemyPosition()
+    {
+        //Spider has the following entity data: [-11.455525245656695d, 119.0d, 6.752002335797372d]
+        string result = Setup.command.SendCommand("execute as @e[type=!player,type=!item,sort=nearest,limit=1] run data get entity @s Pos");
+        // 正規表現で数値を抜き出す([]内の文字列を抽出)
+        var regex = new Regex(@"\[(.+?)\]");
+        Match match = regex.Match(result);
+        string[] parts = match.Groups[1].Value.Split(',');
+        double enemy_pos_x = Math.Floor(Double.Parse(parts[0].TrimEnd('d')));
+        double enemy_pos_y = Math.Floor(Double.Parse(parts[1].TrimEnd('d')));
+        double enemy_pos_z = Math.Floor(Double.Parse(parts[2].TrimEnd('d')));
+        // 更新前のインスタンスはGCで開放される
+        NearestEnemyPosition = new Position(enemy_pos_x, enemy_pos_y, enemy_pos_z);
     }
 }
 
