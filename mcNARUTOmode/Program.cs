@@ -22,12 +22,7 @@ internal class Program
         {
             Setup.command.Wait(300);
             Setup.player.UpdatePlayerStatus();
-            Console.WriteLine(Setup.player.LatestPlayerPosition.X);
-            Console.WriteLine(Setup.player.LatestPlayerPosition.Y);
-            Console.WriteLine(Setup.player.LatestPlayerPosition.Z);
-            Console.WriteLine(Setup.player.LastPlayerPosition.X);
-            Console.WriteLine(Setup.player.LastPlayerPosition.Y);
-            Console.WriteLine(Setup.player.LastPlayerPosition.Z);
+            Console.WriteLine(Setup.player.PlayerMotion.Y);
         }
     }
 }
@@ -54,6 +49,7 @@ internal class PlayerStatus
     internal void UpdatePlayerStatus()
     {
         UpdatePlayerPosition();
+        UpdatePlayerMotion();
     }
     private void UpdatePlayerPosition()
     {
@@ -61,12 +57,18 @@ internal class PlayerStatus
         LastPlayerPosition = LatestPlayerPosition;
 
         var pos = Setup.command.GetPlayerData(Setup.PlayerName).Position;
-        // 整数座標に変換(末尾のdを削除して丸め)
+        // 整数座標に変換
         double x = Math.Floor(pos.X);
         double y = Math.Floor(pos.Y);
         double z = Math.Floor(pos.Z);
         // 更新前のインスタンスはGCで開放される
         LatestPlayerPosition = new Position(x, y, z);
+    }
+    private void UpdatePlayerMotion()
+    {
+        var mot = Setup.command.GetPlayerData(Setup.PlayerName).Motion;
+        // 更新前のインスタンスはGCで開放される
+        PlayerMotion = new Motion(mot.X, mot.Y, mot.Z);
     }
 }
 
