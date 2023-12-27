@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Text.RegularExpressions;
 using MinecraftConnection;
 
 internal class Setup
@@ -21,18 +22,18 @@ internal class Program
         while (true)
         {
             Setup.command.Wait(300);
-            Setup.player.UpdatePlayerStatus();
-            Console.WriteLine(Setup.player.PlayerFallDistance);
+            Setup.player.UpdateStatus();
+            Console.WriteLine(Setup.player.SelectedItemName);
         }
     }
 }
 internal class PlayerStatus
 {
     //プレイヤー変数
-    internal Position LatestPlayerPosition = new(0, 0, 0);
-    internal Position LastPlayerPosition = new(0, 0, 0);
-    internal Motion PlayerMotion = new(0, 0, 0);
-    internal double PlayerFallDistance { get; set; } = 0.0;
+    internal Position LatestPosition = new(0, 0, 0);
+    internal Position LastPosition = new(0, 0, 0);
+    internal Motion Motion = new(0, 0, 0);
+    internal double FallDistance { get; set; } = 0.0;
     internal string SelectedItemName { get; set; } = "minecraft:sand";
     internal bool SelectedItemIsUsed { get; set; } = false;
 
@@ -47,16 +48,17 @@ internal class PlayerStatus
     }
 
     //update関数(座標等の取得
-    internal void UpdatePlayerStatus()
+    internal void UpdateStatus()
     {
         UpdatePlayerPosition();
         UpdatePlayerMotion();
         UpdatePlayerFallDistance();
+        UpdatePlayerSelectedItem();
     }
     private void UpdatePlayerPosition()
     {
         //前回値の保持
-        LastPlayerPosition = LatestPlayerPosition;
+        LastPosition = LatestPosition;
 
         var pos = Setup.command.GetPlayerData(Setup.PlayerName).Position;
         // 整数座標に変換
@@ -64,19 +66,28 @@ internal class PlayerStatus
         double y = Math.Floor(pos.Y);
         double z = Math.Floor(pos.Z);
         // 更新前のインスタンスはGCで開放される
-        LatestPlayerPosition = new Position(x, y, z);
+        LatestPosition = new Position(x, y, z);
     }
 
     private void UpdatePlayerMotion()
     {
         var mot = Setup.command.GetPlayerData(Setup.PlayerName).Motion;
         // 更新前のインスタンスはGCで開放される
-        PlayerMotion = new Motion(mot.X, mot.Y, mot.Z);
+        Motion = new Motion(mot.X, mot.Y, mot.Z);
     }
 
     private void UpdatePlayerFallDistance()
     {
-        PlayerFallDistance = Setup.command.GetPlayerData(Setup.PlayerName).FallDistance;
+        FallDistance = Setup.command.GetPlayerData(Setup.PlayerName).FallDistance;
+    }
+
+    private void UpdatePlayerSelectedItem()
+    {
+        var result = Setup.command.SendCommand("data get entity " + Setup.PlayerName + " SelectedItem");
+        //正規表現で""に囲まれた文字列の抽出
+        var pickItem = new Regex("\"(.+?)\"");
+        var match = pickItem.Match(result);
+        SelectedItemName = match.Groups[1].Value;
     }
 }
 
