@@ -23,7 +23,7 @@ internal class Program
         {
             Setup.command.Wait(300);
             Setup.player.UpdateStatus();
-            Console.WriteLine(Setup.player.SelectedItemName);
+            Console.WriteLine(Setup.player.SelectedItemIsUsed);
         }
     }
 }
@@ -44,7 +44,9 @@ internal class PlayerStatus
     internal PlayerStatus()
     {
         Console.WriteLine("PlayerStatusInit!");
-        //TODO:スコアボードの作成
+        //スコアボードの作成(sand)
+        Setup.command.SendCommand("scoreboard objectives add sandRightClicked minecraft.used:minecraft.sand \"sand right clicked\"");
+        Setup.command.SendCommand("scoreboard players set @a sandRightClicked 0");
     }
 
     //update関数(座標等の取得
@@ -54,6 +56,7 @@ internal class PlayerStatus
         UpdatePlayerMotion();
         UpdatePlayerFallDistance();
         UpdatePlayerSelectedItem();
+        UpdatePlayerSelectedItemUsed();
     }
     private void UpdatePlayerPosition()
     {
@@ -88,6 +91,33 @@ internal class PlayerStatus
         var pickItem = new Regex("\"(.+?)\"");
         var match = pickItem.Match(result);
         SelectedItemName = match.Groups[1].Value;
+    }
+
+    private void UpdatePlayerSelectedItemUsed()
+    {
+        //2dice_K has 0 [sand right clicked]
+        string result = "";
+        switch (SelectedItemName)
+        {
+            case "minecraft:sand":
+                result = Setup.command.SendCommand("scoreboard players get @p sandRightClicked");
+                break;
+            default:
+                break;
+        }
+        //正規表現でスペースに囲まれた1桁の数字を抽出
+        Regex regex = new Regex(@"\s(\d)\s");
+        Match match = regex.Match(result);
+        if (match.Groups[1].Value == "1")
+        {
+            SelectedItemIsUsed = true;
+            Setup.command.SendCommand("scoreboard players set @a sandRightClicked 0");
+        }
+        else
+        {
+            SelectedItemIsUsed = false;
+        }
+
     }
 }
 
