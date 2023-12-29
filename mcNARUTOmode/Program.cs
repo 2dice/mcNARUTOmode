@@ -26,7 +26,7 @@ internal class Program
             Setup.command.Wait(50);
             Setup.player.UpdateStatus();
             Setup.sandNinja.PreventFallDamage();
-            Console.WriteLine(Setup.player.FallDistance);
+            //Console.WriteLine(Setup.player.FallDistance);
         }
     }
 }
@@ -147,7 +147,7 @@ internal class Ninja
     //コンストラクタ
     internal Ninja()
     {
-        UseBlockName = "glass";
+        UseBlockName = "barrier";
     }
 
     //設置位置保持用変数
@@ -155,7 +155,7 @@ internal class Ninja
     protected bool PreventBlockSetFlag = false;
     internal virtual void PreventFallDamage()
     {
-        if (Setup.player.FallDistance >= 3)
+        if (Setup.player.FallDistance >= 3 && PreventBlockSetFlag == false)
         {
             // 更新したら前のインスタンスはGCで開放される
             PreventBlockPosition = new Position(Setup.player.LatestPosition.X, Setup.player.LatestPosition.Y - 2, Setup.player.LatestPosition.Z);
@@ -163,14 +163,13 @@ internal class Ninja
             string result = Setup.command.SendCommand($"execute if block {PreventBlockPosition.X} {PreventBlockPosition.Y} {PreventBlockPosition.Z} air");
             if (result == "Test passed")
             {
-                Setup.command.SetBlock(PreventBlockPosition.X, PreventBlockPosition.Y, PreventBlockPosition.Z, UseBlockName);
+                Setup.command.SendCommand($"fill {PreventBlockPosition.X - 1} {PreventBlockPosition.Y} {PreventBlockPosition.Z - 1} {PreventBlockPosition.X + 1} {PreventBlockPosition.Y} {PreventBlockPosition.Z + 1} minecraft:{UseBlockName}");
                 PreventBlockSetFlag = true;
-
             }
         }
         else if (Setup.player.FallDistance == 0 && PreventBlockSetFlag == true)
         {
-            Setup.command.SetBlock(PreventBlockPosition.X, PreventBlockPosition.Y, PreventBlockPosition.Z, "air[] destroy");
+            Setup.command.SendCommand($"fill {PreventBlockPosition.X - 1} {PreventBlockPosition.Y} {PreventBlockPosition.Z - 1} {PreventBlockPosition.X + 1} {PreventBlockPosition.Y} {PreventBlockPosition.Z + 1} minecraft:air[] destroy");
             PreventBlockSetFlag = false;
         }
     }
@@ -179,21 +178,28 @@ internal class SandNinja : Ninja
 {
     internal SandNinja()
     {
-        UseBlockName = "glass";
+        UseBlockName = "sand";
     }
-    /*
     internal override void PreventFallDamage()
     {
-        if (Setup.player.FallDistance > 3)
+        if (Setup.player.FallDistance >= 3 && PreventBlockSetFlag == false)
         {
-            Setup.command.SetBlock(PreventBlockPosition.X, PreventBlockPosition.Y - 1, PreventBlockPosition.Z, "glass");
-            Setup.command.SetBlock(PreventBlockPosition.X, PreventBlockPosition.Y, PreventBlockPosition.Z, UseBlockName);
+            // 更新したら前のインスタンスはGCで開放される
+            PreventBlockPosition = new Position(Setup.player.LatestPosition.X, Setup.player.LatestPosition.Y - 2, Setup.player.LatestPosition.Z);
+            //配置場所がairかどうか確認
+            string result = Setup.command.SendCommand($"execute if block {PreventBlockPosition.X} {PreventBlockPosition.Y} {PreventBlockPosition.Z} air");
+            if (result == "Test passed")
+            {
+                Setup.command.SendCommand($"fill {PreventBlockPosition.X - 1} {PreventBlockPosition.Y} {PreventBlockPosition.Z - 1} {PreventBlockPosition.X + 1} {PreventBlockPosition.Y} {PreventBlockPosition.Z + 1} minecraft:barrier");
+                Setup.command.SendCommand($"fill {PreventBlockPosition.X - 1} {PreventBlockPosition.Y + 1} {PreventBlockPosition.Z - 1} {PreventBlockPosition.X + 1} {PreventBlockPosition.Y + 1} {PreventBlockPosition.Z + 1} minecraft:{UseBlockName}");
+                PreventBlockSetFlag = true;
+            }
         }
-        else if (Setup.player.FallDistance == 0)
+        else if (Setup.player.FallDistance == 0 && PreventBlockSetFlag == true)
         {
-
+            Setup.command.SendCommand($"fill {PreventBlockPosition.X - 1} {PreventBlockPosition.Y} {PreventBlockPosition.Z - 1} {PreventBlockPosition.X + 1} {PreventBlockPosition.Y + 1} {PreventBlockPosition.Z + 1} minecraft:air[] destroy");
+            PreventBlockSetFlag = false;
         }
     }
-    */
 }
 
