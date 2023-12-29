@@ -23,7 +23,7 @@ internal class Program
         // メインループ処理
         while (true)
         {
-            Setup.command.Wait(50);
+            Setup.command.Wait(30);
             Setup.player.UpdateStatus();
             Setup.sandNinja.PreventFallDamage();
             //Console.WriteLine(Setup.player.FallDistance);
@@ -67,13 +67,21 @@ internal class PlayerStatus
         //前回値の保持
         LastPosition = LatestPosition;
 
-        Position pos = Setup.command.GetPlayerData(Setup.PlayerName).Position;
-        // 整数座標に変換
-        double x = Math.Floor(pos.X);
-        double y = Math.Floor(pos.Y);
-        double z = Math.Floor(pos.Z);
-        // 更新したら前のインスタンスはGCで開放される
-        LatestPosition = new Position(x, y, z);
+        try
+        {
+            //ここで稀に例外が発生(型が一致しない)
+            Position pos = Setup.command.GetPlayerData(Setup.PlayerName).Position;
+            // 整数座標に変換
+            double x = Math.Floor(pos.X);
+            double y = Math.Floor(pos.Y);
+            double z = Math.Floor(pos.Z);
+            // 更新したら前のインスタンスはGCで開放される
+            LatestPosition = new Position(x, y, z);
+        }
+        catch (Exception e)
+        {
+            Console.WriteLine("UpdatePlayerPosition()Error: " + e.Message);
+        }
     }
 
     private void UpdatePlayerMotion()
@@ -86,7 +94,15 @@ internal class PlayerStatus
 
     private void UpdatePlayerFallDistance()
     {
-        FallDistance = Setup.command.GetPlayerData(Setup.PlayerName).FallDistance;
+        try
+        {
+            //ここで稀に例外が発生(型が一致しない)
+            FallDistance = Setup.command.GetPlayerData(Setup.PlayerName).FallDistance;
+        }
+        catch (Exception e)
+        {
+            Console.WriteLine("UpdatePlayerFallDistance()Error: " + e.Message);
+        }
     }
 
     private void UpdatePlayerSelectedItem()
@@ -155,7 +171,7 @@ internal class Ninja
     protected bool PreventBlockSetFlag = false;
     internal virtual void PreventFallDamage()
     {
-        if (Setup.player.FallDistance >= 3 && PreventBlockSetFlag == false)
+        if (Setup.player.FallDistance >= 2 && PreventBlockSetFlag == false)
         {
             // 更新したら前のインスタンスはGCで開放される
             PreventBlockPosition = new Position(Setup.player.LatestPosition.X, Setup.player.LatestPosition.Y - 2, Setup.player.LatestPosition.Z);
@@ -163,13 +179,13 @@ internal class Ninja
             string result = Setup.command.SendCommand($"execute if block {PreventBlockPosition.X} {PreventBlockPosition.Y} {PreventBlockPosition.Z} air");
             if (result == "Test passed")
             {
-                Setup.command.SendCommand($"fill {PreventBlockPosition.X - 1} {PreventBlockPosition.Y} {PreventBlockPosition.Z - 1} {PreventBlockPosition.X + 1} {PreventBlockPosition.Y} {PreventBlockPosition.Z + 1} minecraft:{UseBlockName}");
+                Setup.command.SendCommand($"fill {PreventBlockPosition.X - 1} {PreventBlockPosition.Y} {PreventBlockPosition.Z - 1} {PreventBlockPosition.X + 1} {PreventBlockPosition.Y + 1} {PreventBlockPosition.Z + 1} minecraft:{UseBlockName}");
                 PreventBlockSetFlag = true;
             }
         }
         else if (Setup.player.FallDistance == 0 && PreventBlockSetFlag == true)
         {
-            Setup.command.SendCommand($"fill {PreventBlockPosition.X - 1} {PreventBlockPosition.Y} {PreventBlockPosition.Z - 1} {PreventBlockPosition.X + 1} {PreventBlockPosition.Y} {PreventBlockPosition.Z + 1} minecraft:air[] destroy");
+            Setup.command.SendCommand($"fill {PreventBlockPosition.X - 1} {PreventBlockPosition.Y} {PreventBlockPosition.Z - 1} {PreventBlockPosition.X + 1} {PreventBlockPosition.Y + 1} {PreventBlockPosition.Z + 1} minecraft:air[] destroy");
             PreventBlockSetFlag = false;
         }
     }
@@ -182,7 +198,7 @@ internal class SandNinja : Ninja
     }
     internal override void PreventFallDamage()
     {
-        if (Setup.player.FallDistance >= 3 && PreventBlockSetFlag == false)
+        if (Setup.player.FallDistance >= 2 && PreventBlockSetFlag == false)
         {
             // 更新したら前のインスタンスはGCで開放される
             PreventBlockPosition = new Position(Setup.player.LatestPosition.X, Setup.player.LatestPosition.Y - 2, Setup.player.LatestPosition.Z);
