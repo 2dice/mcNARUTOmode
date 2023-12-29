@@ -12,6 +12,8 @@ internal class Setup
     //Player Setup
     internal static readonly string PlayerName = "2dice_K";
     internal static readonly PlayerStatus player = new();
+    //Ninja Setup
+    internal static readonly SandNinja sandNinja = new();
 }
 
 internal class Program
@@ -21,11 +23,10 @@ internal class Program
         // メインループ処理
         while (true)
         {
-            Setup.command.Wait(300);
+            Setup.command.Wait(50);
             Setup.player.UpdateStatus();
-            Console.WriteLine(Setup.player.NearestEnemyPosition.X);
-            Console.WriteLine(Setup.player.NearestEnemyPosition.Y);
-            Console.WriteLine(Setup.player.NearestEnemyPosition.Z);
+            Setup.sandNinja.PreventFallDamage();
+            Console.WriteLine(Setup.player.FallDistance);
         }
     }
 }
@@ -66,12 +67,12 @@ internal class PlayerStatus
         //前回値の保持
         LastPosition = LatestPosition;
 
-        var pos = Setup.command.GetPlayerData(Setup.PlayerName).Position;
+        Position pos = Setup.command.GetPlayerData(Setup.PlayerName).Position;
         // 整数座標に変換
         double x = Math.Floor(pos.X);
         double y = Math.Floor(pos.Y);
         double z = Math.Floor(pos.Z);
-        // 更新前のインスタンスはGCで開放される
+        // 更新したら前のインスタンスはGCで開放される
         LatestPosition = new Position(x, y, z);
     }
 
@@ -79,7 +80,7 @@ internal class PlayerStatus
     {
         //TODO:Yデータだけでよければコマンドを2つ減らせる(xyz個別にサーバーに問い合わせているので
         var mot = Setup.command.GetPlayerData(Setup.PlayerName).Motion;
-        // 更新前のインスタンスはGCで開放される
+        // 更新したら前のインスタンスはGCで開放される
         Motion = new Motion(mot.X, mot.Y, mot.Z);
     }
 
@@ -135,8 +136,64 @@ internal class PlayerStatus
         double enemy_pos_x = Math.Floor(Double.Parse(parts[0].TrimEnd('d')));
         double enemy_pos_y = Math.Floor(Double.Parse(parts[1].TrimEnd('d')));
         double enemy_pos_z = Math.Floor(Double.Parse(parts[2].TrimEnd('d')));
-        // 更新前のインスタンスはGCで開放される
+        // 更新したら前のインスタンスはGCで開放される
         NearestEnemyPosition = new Position(enemy_pos_x, enemy_pos_y, enemy_pos_z);
     }
+}
+
+internal class Ninja
+{
+    protected string UseBlockName { get; set; } = "barrier";
+    //コンストラクタ
+    internal Ninja()
+    {
+        UseBlockName = "glass";
+    }
+
+    //設置位置保持用変数
+    protected Position PreventBlockPosition = new(0, 0, 0);
+    protected bool PreventBlockSetFlag = false;
+    internal virtual void PreventFallDamage()
+    {
+        if (Setup.player.FallDistance >= 3)
+        {
+            // 更新したら前のインスタンスはGCで開放される
+            PreventBlockPosition = new Position(Setup.player.LatestPosition.X, Setup.player.LatestPosition.Y - 2, Setup.player.LatestPosition.Z);
+            //配置場所がairかどうか確認
+            string result = Setup.command.SendCommand($"execute if block {PreventBlockPosition.X} {PreventBlockPosition.Y} {PreventBlockPosition.Z} air");
+            if (result == "Test passed")
+            {
+                Setup.command.SetBlock(PreventBlockPosition.X, PreventBlockPosition.Y, PreventBlockPosition.Z, UseBlockName);
+                PreventBlockSetFlag = true;
+
+            }
+        }
+        else if (Setup.player.FallDistance == 0 && PreventBlockSetFlag == true)
+        {
+            Setup.command.SetBlock(PreventBlockPosition.X, PreventBlockPosition.Y, PreventBlockPosition.Z, "air[] destroy");
+            PreventBlockSetFlag = false;
+        }
+    }
+}
+internal class SandNinja : Ninja
+{
+    internal SandNinja()
+    {
+        UseBlockName = "glass";
+    }
+    /*
+    internal override void PreventFallDamage()
+    {
+        if (Setup.player.FallDistance > 3)
+        {
+            Setup.command.SetBlock(PreventBlockPosition.X, PreventBlockPosition.Y - 1, PreventBlockPosition.Z, "glass");
+            Setup.command.SetBlock(PreventBlockPosition.X, PreventBlockPosition.Y, PreventBlockPosition.Z, UseBlockName);
+        }
+        else if (Setup.player.FallDistance == 0)
+        {
+
+        }
+    }
+    */
 }
 
