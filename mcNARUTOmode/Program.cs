@@ -26,7 +26,8 @@ internal class Program
             Setup.Command.Wait(30);
             Setup.Player.UpdateStatus();
             Setup.SandNinja.PreventFallDamage();
-            //Console.WriteLine(Setup.player.FallDistance);
+            Setup.SandNinja.SetFootholdOnJump();
+            //Console.WriteLine(Setup.Player.LatestPosition.Y - Setup.Player.LastPosition.Y);
         }
     }
 }
@@ -56,7 +57,6 @@ internal class PlayerStatus
     internal void UpdateStatus()
     {
         updatePlayerPosition();
-        updatePlayerMotion();
         updatePlayerFallDistance();
         updatePlayerSelectedItem();
         updatePlayerSelectedItemUsed();
@@ -82,14 +82,6 @@ internal class PlayerStatus
         {
             Console.WriteLine("UpdatePlayerPosition()Error: " + e.Message);
         }
-    }
-
-    private void updatePlayerMotion()
-    {
-        //TODO:Yデータだけでよければコマンドを2つ減らせる(xyz個別にサーバーに問い合わせているので
-        Motion _mot = Setup.Command.GetPlayerData(Setup.PlayerName).Motion;
-        // 更新したら前のインスタンスはGCで開放される
-        Motion = new Motion(_mot.X, _mot.Y, _mot.Z);
     }
 
     private void updatePlayerFallDistance()
@@ -189,12 +181,42 @@ internal class Ninja
             preventBlockSetFlag = false;
         }
     }
+
+    protected Position footholdBlockPosition = new(0, 0, 0);
+    protected bool footholdBlockSetFlag = false;
+    internal virtual void SetFootholdOnJump()
+    {
+        if ((Setup.Player.LatestPosition.X <= footholdBlockPosition.X - 2
+            || Setup.Player.LatestPosition.X >= footholdBlockPosition.X + 2
+            || Setup.Player.LatestPosition.Z <= footholdBlockPosition.Z - 2
+            || Setup.Player.LatestPosition.Z >= footholdBlockPosition.Z + 2
+            || Setup.Player.LatestPosition.Y != footholdBlockPosition.Y + 1)
+            && footholdBlockSetFlag == true)
+        {
+            Setup.Command.SendCommand($"fill {footholdBlockPosition.X - 1} {footholdBlockPosition.Y} {footholdBlockPosition.Z - 1} {footholdBlockPosition.X + 1} {footholdBlockPosition.Y} {footholdBlockPosition.Z + 1} minecraft:air[] destroy");
+            footholdBlockSetFlag = false;
+        }
+
+        if (Setup.Player.LatestPosition.Y > Setup.Player.LastPosition.Y && footholdBlockSetFlag == false)
+        {
+            // 更新したら前のインスタンスはGCで開放される
+            footholdBlockPosition = new Position(Setup.Player.LatestPosition.X, Setup.Player.LatestPosition.Y - 1, Setup.Player.LatestPosition.Z);
+            //配置場所がairかどうか確認
+            string _result = Setup.Command.SendCommand($"execute if block {footholdBlockPosition.X} {footholdBlockPosition.Y} {footholdBlockPosition.Z} air");
+            if (_result == "Test passed")
+            {
+                Setup.Command.SendCommand($"fill {footholdBlockPosition.X - 1} {footholdBlockPosition.Y} {footholdBlockPosition.Z - 1} {footholdBlockPosition.X + 1} {footholdBlockPosition.Y} {footholdBlockPosition.Z + 1} minecraft:{useBlockName}");
+                footholdBlockSetFlag = true;
+            }
+        }
+    }
 }
 internal class SandNinja : Ninja
 {
     internal SandNinja()
     {
-        useBlockName = "sand";
+        //useBlockName = "sand";
+        useBlockName = "glass";
     }
     internal override void PreventFallDamage()
     {
