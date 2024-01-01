@@ -31,6 +31,7 @@ internal class Program
         }
     }
 }
+
 internal class PlayerStatus
 {
     //プレイヤー変数
@@ -62,11 +63,11 @@ internal class PlayerStatus
         updatePlayerSelectedItemUsed();
         updateNearestEnemyPosition();
     }
+
     private void updatePlayerPosition()
     {
         //前回値の保持
         LastPosition = LatestPosition;
-
         try
         {
             //ここで稀に例外が発生(型が一致しない)
@@ -130,7 +131,6 @@ internal class PlayerStatus
         {
             SelectedItemIsUsed = false;
         }
-
     }
 
     private void updateNearestEnemyPosition()
@@ -201,8 +201,8 @@ internal class Ninja
         {
             // 更新したら前のインスタンスはGCで開放される
             footholdBlockPosition = new Position(Setup.Player.LatestPosition.X, Setup.Player.LatestPosition.Y - 1, Setup.Player.LatestPosition.Z);
-            //配置場所がairかどうか確認
-            string _result = Setup.Command.SendCommand($"execute if block {footholdBlockPosition.X} {footholdBlockPosition.Y} {footholdBlockPosition.Z} air");
+            //配置場所の1つ下がairかどうか確認(普通のジャンプで作らないように)
+            string _result = Setup.Command.SendCommand($"execute if block {footholdBlockPosition.X} {footholdBlockPosition.Y - 1} {footholdBlockPosition.Z} air");
             if (_result == "Test passed")
             {
                 Setup.Command.SendCommand($"fill {footholdBlockPosition.X - 1} {footholdBlockPosition.Y} {footholdBlockPosition.Z - 1} {footholdBlockPosition.X + 1} {footholdBlockPosition.Y} {footholdBlockPosition.Z + 1} minecraft:{useBlockName}");
@@ -211,12 +211,13 @@ internal class Ninja
         }
     }
 }
+
 internal class SandNinja : Ninja
 {
     internal SandNinja()
     {
-        //useBlockName = "sand";
-        useBlockName = "glass";
+        useBlockName = "sand";
+        //useBlockName = "glass";
     }
     internal override void PreventFallDamage()
     {
@@ -239,5 +240,32 @@ internal class SandNinja : Ninja
             preventBlockSetFlag = false;
         }
     }
-}
+
+    internal override void SetFootholdOnJump()
+    {
+        if ((Setup.Player.LatestPosition.X <= footholdBlockPosition.X - 2
+            || Setup.Player.LatestPosition.X >= footholdBlockPosition.X + 2
+            || Setup.Player.LatestPosition.Z <= footholdBlockPosition.Z - 2
+            || Setup.Player.LatestPosition.Z >= footholdBlockPosition.Z + 2
+            || Setup.Player.LatestPosition.Y != footholdBlockPosition.Y + 1)
+            && footholdBlockSetFlag == true)
+        {
+            Setup.Command.SendCommand($"fill {footholdBlockPosition.X - 1} {footholdBlockPosition.Y - 1} {footholdBlockPosition.Z - 1} {footholdBlockPosition.X + 1} {footholdBlockPosition.Y} {footholdBlockPosition.Z + 1} minecraft:air[] destroy");
+            footholdBlockSetFlag = false;
+        }
+
+        if (Setup.Player.LatestPosition.Y > Setup.Player.LastPosition.Y && footholdBlockSetFlag == false)
+        {
+            // 更新したら前のインスタンスはGCで開放される
+            footholdBlockPosition = new Position(Setup.Player.LatestPosition.X, Setup.Player.LatestPosition.Y - 1, Setup.Player.LatestPosition.Z);
+            //配置場所の1つ下がairかどうか確認
+            string _result = Setup.Command.SendCommand($"execute if block {footholdBlockPosition.X} {footholdBlockPosition.Y - 1} {footholdBlockPosition.Z} air");
+            if (_result == "Test passed")
+            {
+                Setup.Command.SendCommand($"fill {footholdBlockPosition.X - 1} {footholdBlockPosition.Y - 1} {footholdBlockPosition.Z - 1} {footholdBlockPosition.X + 1} {footholdBlockPosition.Y - 1} {footholdBlockPosition.Z + 1} minecraft:barrier");
+                Setup.Command.SendCommand($"fill {footholdBlockPosition.X - 1} {footholdBlockPosition.Y} {footholdBlockPosition.Z - 1} {footholdBlockPosition.X + 1} {footholdBlockPosition.Y} {footholdBlockPosition.Z + 1} minecraft:{useBlockName}");
+                footholdBlockSetFlag = true;
+            }
+        }
+    }
 
