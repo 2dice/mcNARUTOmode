@@ -177,6 +177,17 @@ internal class PlayerStatus
     }
 }
 
+internal static class Utility
+{
+    internal static (float yaw, float pitch) GetRotationFromRelative(int x, int y, int z)
+    {
+        double xy = Math.Sqrt(x * x + z * z);
+        double yaw = Math.Atan2(-x, z) * 180 / Math.PI;
+        double pitch = Math.Atan2(-y, xy) * 180 / Math.PI;
+        return ((float)yaw, (float)pitch);
+    }
+}
+
 internal class Ninja
 {
     protected string useBlockName { get; set; } = "barrier";
@@ -239,18 +250,24 @@ internal class Ninja
         }
     }
 
+    protected bool defensiveWallSetFlag = false;
     internal virtual void AutoDefensiveWall()
     {
-        //破壊条件：自己位置が動いたとき/新しい位置に壁を設置したとき
+        //配置後移動したら破壊
+        if (defensiveWallSetFlag == true &&
+            (Setup.Player.LatestPosition.X != Setup.Player.LastPosition.X ||
+            Setup.Player.LatestPosition.Y != Setup.Player.LastPosition.Y ||
+            Setup.Player.LatestPosition.Z != Setup.Player.LastPosition.Z))
+        {
+            Setup.Command.SendCommand($"fill {Setup.Player.LastPosition.X - 3} {Setup.Player.LastPosition.Y} {Setup.Player.LastPosition.Z - 3} {Setup.Player.LastPosition.X + 3} {Setup.Player.LastPosition.Y + 1} {Setup.Player.LastPosition.Z + 3} minecraft:air replace minecraft:{useBlockName}");
+        }
+
         //xz相対位置が3以下なら3以下の座標を5にしてテレポートさせて押し返し壁を設置
         int _relativeDistance_x = (int)Setup.Player.NearestEnemyPosition.X - (int)Setup.Player.LatestPosition.X;
         int _relativeDistance_y = (int)Setup.Player.NearestEnemyPosition.Y - (int)Setup.Player.LatestPosition.Y;
         int _relativeDistance_z = (int)Setup.Player.NearestEnemyPosition.Z - (int)Setup.Player.LatestPosition.Z;
         int _relativeOffsetDistance_x = 0;
         int _relativeOffsetDistance_z = 0;
-        int _x = (int)Setup.Player.LatestPosition.X - 3;
-        int _y = (int)Setup.Player.LatestPosition.Y - 3;
-        int _z = (int)Setup.Player.LatestPosition.Z - 3;
 
         if (((Math.Abs(_relativeDistance_x)) < 4) && (Math.Abs(_relativeDistance_y) < 4 && (Math.Abs(_relativeDistance_z) < 4)))
         {
@@ -267,9 +284,66 @@ internal class Ninja
                 _relativeOffsetDistance_x = _relativeDistance_x;
             }
             //敵をテレポートさせて押し返す
+            int _x = (int)Setup.Player.LatestPosition.X - 3;
+            int _y = (int)Setup.Player.LatestPosition.Y - 3;
+            int _z = (int)Setup.Player.LatestPosition.Z - 3;
             Setup.Command.SendCommand($"execute as @e[x={_x},dx=6,y={_y},dy=6,z={_z},dz=6,type=!player,type=!item,sort=nearest,limit=1] run tp @s {(int)Setup.Player.LatestPosition.X + _relativeOffsetDistance_x} {(int)Setup.Player.NearestEnemyPosition.Y} {(int)Setup.Player.LatestPosition.Z + _relativeOffsetDistance_z}");
+            var (_yaw, _pitch) = Utility.GetRotationFromRelative(_relativeDistance_x, _relativeDistance_y, _relativeDistance_z);
+            //敵の方を向く
+            //Setup.Command.SendCommand($"teleport @p {(int)Setup.Player.LatestPosition.X} {(int)Setup.Player.LatestPosition.Y} {(int)Setup.Player.LatestPosition.Z} {_yaw} {_pitch}");
+            //防御壁配置
+            if ((_yaw < 22.5 && _yaw >= 0) || (_yaw > -22.5 && _yaw <= 0))
+            {
+                //南
+                Setup.Command.SendCommand($"fill {(int)Setup.Player.LatestPosition.X - 1} {(int)Setup.Player.LatestPosition.Y} {(int)Setup.Player.LatestPosition.Z + 3} {(int)Setup.Player.LatestPosition.X + 1} {(int)Setup.Player.LatestPosition.Y + 1} {(int)Setup.Player.LatestPosition.Z + 3} minecraft:{useBlockName}");
+            }
+            else if (_yaw >= 22.5 && _yaw < 67.5)
+            {
+                //南西
+                Setup.Command.SendCommand($"fill {(int)Setup.Player.LatestPosition.X - 1} {(int)Setup.Player.LatestPosition.Y} {(int)Setup.Player.LatestPosition.Z + 3} {(int)Setup.Player.LatestPosition.X - 1} {(int)Setup.Player.LatestPosition.Y + 1} {(int)Setup.Player.LatestPosition.Z + 3} minecraft:{useBlockName}");
+                Setup.Command.SendCommand($"fill {(int)Setup.Player.LatestPosition.X - 2} {(int)Setup.Player.LatestPosition.Y} {(int)Setup.Player.LatestPosition.Z + 2} {(int)Setup.Player.LatestPosition.X - 2} {(int)Setup.Player.LatestPosition.Y + 1} {(int)Setup.Player.LatestPosition.Z + 2} minecraft:{useBlockName}");
+                Setup.Command.SendCommand($"fill {(int)Setup.Player.LatestPosition.X - 3} {(int)Setup.Player.LatestPosition.Y} {(int)Setup.Player.LatestPosition.Z + 1} {(int)Setup.Player.LatestPosition.X - 3} {(int)Setup.Player.LatestPosition.Y + 1} {(int)Setup.Player.LatestPosition.Z + 1} minecraft:{useBlockName}");
+            }
+            else if (_yaw >= 67.5 && _yaw < 112.5)
+            {
+                //西
+                Setup.Command.SendCommand($"fill {(int)Setup.Player.LatestPosition.X - 3} {(int)Setup.Player.LatestPosition.Y} {(int)Setup.Player.LatestPosition.Z - 1} {(int)Setup.Player.LatestPosition.X - 3} {(int)Setup.Player.LatestPosition.Y + 1} {(int)Setup.Player.LatestPosition.Z + 1} minecraft:{useBlockName}");
+            }
+            else if (_yaw >= 112.5 && _yaw < 157.5)
+            {
+                //北西
+                Setup.Command.SendCommand($"fill {(int)Setup.Player.LatestPosition.X - 3} {(int)Setup.Player.LatestPosition.Y} {(int)Setup.Player.LatestPosition.Z - 1} {(int)Setup.Player.LatestPosition.X - 3} {(int)Setup.Player.LatestPosition.Y + 1} {(int)Setup.Player.LatestPosition.Z - 1} minecraft:{useBlockName}");
+                Setup.Command.SendCommand($"fill {(int)Setup.Player.LatestPosition.X - 2} {(int)Setup.Player.LatestPosition.Y} {(int)Setup.Player.LatestPosition.Z - 2} {(int)Setup.Player.LatestPosition.X - 2} {(int)Setup.Player.LatestPosition.Y + 1} {(int)Setup.Player.LatestPosition.Z - 2} minecraft:{useBlockName}");
+                Setup.Command.SendCommand($"fill {(int)Setup.Player.LatestPosition.X - 1} {(int)Setup.Player.LatestPosition.Y} {(int)Setup.Player.LatestPosition.Z - 3} {(int)Setup.Player.LatestPosition.X - 1} {(int)Setup.Player.LatestPosition.Y + 1} {(int)Setup.Player.LatestPosition.Z - 3} minecraft:{useBlockName}");
+            }
+            else if ((_yaw >= 157.5 && _yaw <= 180) || (_yaw >= -180 && _yaw < -157.5))
+            {
+                //北
+                Setup.Command.SendCommand($"fill {(int)Setup.Player.LatestPosition.X - 1} {(int)Setup.Player.LatestPosition.Y} {(int)Setup.Player.LatestPosition.Z - 3} {(int)Setup.Player.LatestPosition.X + 1} {(int)Setup.Player.LatestPosition.Y + 1} {(int)Setup.Player.LatestPosition.Z - 3} minecraft:{useBlockName}");
+            }
+            else if (_yaw >= -157.5 && _yaw < -112.5)
+            {
+                //北東
+                Setup.Command.SendCommand($"fill {(int)Setup.Player.LatestPosition.X + 1} {(int)Setup.Player.LatestPosition.Y} {(int)Setup.Player.LatestPosition.Z - 3} {(int)Setup.Player.LatestPosition.X + 1} {(int)Setup.Player.LatestPosition.Y + 1} {(int)Setup.Player.LatestPosition.Z - 3} minecraft:{useBlockName}");
+                Setup.Command.SendCommand($"fill {(int)Setup.Player.LatestPosition.X + 2} {(int)Setup.Player.LatestPosition.Y} {(int)Setup.Player.LatestPosition.Z - 2} {(int)Setup.Player.LatestPosition.X + 2} {(int)Setup.Player.LatestPosition.Y + 1} {(int)Setup.Player.LatestPosition.Z - 2} minecraft:{useBlockName}");
+                Setup.Command.SendCommand($"fill {(int)Setup.Player.LatestPosition.X + 3} {(int)Setup.Player.LatestPosition.Y} {(int)Setup.Player.LatestPosition.Z - 1} {(int)Setup.Player.LatestPosition.X + 3} {(int)Setup.Player.LatestPosition.Y + 1} {(int)Setup.Player.LatestPosition.Z - 1} minecraft:{useBlockName}");
+            }
+            else if (_yaw >= -112.5 && _yaw < -67.5)
+            {
+                //東
+                Setup.Command.SendCommand($"fill {(int)Setup.Player.LatestPosition.X + 3} {(int)Setup.Player.LatestPosition.Y} {(int)Setup.Player.LatestPosition.Z - 1} {(int)Setup.Player.LatestPosition.X + 3} {(int)Setup.Player.LatestPosition.Y + 1} {(int)Setup.Player.LatestPosition.Z + 1} minecraft:{useBlockName}");
+            }
+            else
+            {
+                //南東
+                Setup.Command.SendCommand($"fill {(int)Setup.Player.LatestPosition.X + 3} {(int)Setup.Player.LatestPosition.Y} {(int)Setup.Player.LatestPosition.Z + 1} {(int)Setup.Player.LatestPosition.X + 3} {(int)Setup.Player.LatestPosition.Y + 1} {(int)Setup.Player.LatestPosition.Z + 1} minecraft:{useBlockName}");
+                Setup.Command.SendCommand($"fill {(int)Setup.Player.LatestPosition.X + 2} {(int)Setup.Player.LatestPosition.Y} {(int)Setup.Player.LatestPosition.Z + 2} {(int)Setup.Player.LatestPosition.X + 2} {(int)Setup.Player.LatestPosition.Y + 1} {(int)Setup.Player.LatestPosition.Z + 2} minecraft:{useBlockName}");
+                Setup.Command.SendCommand($"fill {(int)Setup.Player.LatestPosition.X + 1} {(int)Setup.Player.LatestPosition.Y} {(int)Setup.Player.LatestPosition.Z + 3} {(int)Setup.Player.LatestPosition.X + 1} {(int)Setup.Player.LatestPosition.Y + 1} {(int)Setup.Player.LatestPosition.Z + 3} minecraft:{useBlockName}");
+            }
+            defensiveWallSetFlag = true;
         }
     }
+
 }
 
 internal class SandNinja : Ninja
