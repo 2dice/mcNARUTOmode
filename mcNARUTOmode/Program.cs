@@ -1,6 +1,5 @@
-﻿using System;
+﻿using MinecraftConnection;
 using System.Text.RegularExpressions;
-using MinecraftConnection;
 
 internal class Setup
 {
@@ -27,6 +26,7 @@ internal class Program
             Setup.Player.UpdateStatus();
             Setup.SandNinja.PreventFallDamage();
             Setup.SandNinja.SetFootholdOnJump();
+            Setup.SandNinja.AutoDefensiveWall();
             //Console.WriteLine(Setup.Player.LatestPosition.Y - Setup.Player.LastPosition.Y);
         }
     }
@@ -133,19 +133,47 @@ internal class PlayerStatus
         }
     }
 
+    protected bool useRangeValueFlag = false;
     private void updateNearestEnemyPosition()
     {
+        //2種類の範囲をローテーションでサーチ(一度補足した対象が範囲外に出ないと更新されないため)
+        int _x, _y, _z, _dx, _dy, _dz;
+        if (useRangeValueFlag)
+        {
+            _x = (int)Setup.Player.LatestPosition.X - 6;
+            _y = (int)Setup.Player.LatestPosition.Y - 6;
+            _z = (int)Setup.Player.LatestPosition.Z - 6;
+            _dx = _dy = _dz = 12;
+            useRangeValueFlag = false;
+        }
+        else
+        {
+            _x = (int)Setup.Player.LatestPosition.X - 3;
+            _y = (int)Setup.Player.LatestPosition.Y - 3;
+            _z = (int)Setup.Player.LatestPosition.Z - 3;
+            _dx = _dy = _dz = 6;
+            useRangeValueFlag = true;
+
+        }
         //Spider has the following entity data: [-11.455525245656695d, 119.0d, 6.752002335797372d]
-        string _result = Setup.Command.SendCommand("execute as @e[type=!player,type=!item,sort=nearest,limit=1] run data get entity @s Pos");
-        // 正規表現で数値を抜き出す([]内の文字列を抽出)
-        var _regex = new Regex(@"\[(.+?)\]");
-        Match _match = _regex.Match(_result);
-        string[] _parts = _match.Groups[1].Value.Split(',');
-        double _enemy_pos_x = Math.Floor(Double.Parse(_parts[0].TrimEnd('d')));
-        double _enemy_pos_y = Math.Floor(Double.Parse(_parts[1].TrimEnd('d')));
-        double _enemy_pos_z = Math.Floor(Double.Parse(_parts[2].TrimEnd('d')));
-        // 更新したら前のインスタンスはGCで開放される
-        NearestEnemyPosition = new Position(_enemy_pos_x, _enemy_pos_y, _enemy_pos_z);
+        string _result = Setup.Command.SendCommand($"execute as @e[x={_x},dx={_dx},y={_y},dy={_dy},z={_z},dz={_dz},type=!player,type=!item,sort=nearest,limit=1] run data get entity @s Pos");
+        if (_result != "")
+        {
+            // 正規表現で数値を抜き出す([]内の文字列を抽出)
+            var _regex = new Regex(@"\[(.+?)\]");
+            Match _match = _regex.Match(_result);
+            string[] _parts = _match.Groups[1].Value.Split(',');
+            double _enemy_pos_x = Math.Floor(Double.Parse(_parts[0].TrimEnd('d')));
+            double _enemy_pos_y = Math.Floor(Double.Parse(_parts[1].TrimEnd('d')));
+            double _enemy_pos_z = Math.Floor(Double.Parse(_parts[2].TrimEnd('d')));
+            // 更新したら前のインスタンスはGCで開放される
+            NearestEnemyPosition = new Position(_enemy_pos_x, _enemy_pos_y, _enemy_pos_z);
+        }
+        else
+        {
+            //近くにいない場合仮の値を設定
+            NearestEnemyPosition = new Position(Setup.Player.LatestPosition.X + 100, Setup.Player.LatestPosition.Y + 100, Setup.Player.LatestPosition.Z + 100);
+        }
     }
 }
 
@@ -210,6 +238,38 @@ internal class Ninja
             }
         }
     }
+
+    internal virtual void AutoDefensiveWall()
+    {
+        //破壊条件：自己位置が動いたとき/新しい位置に壁を設置したとき
+        //xz相対位置が3以下なら3以下の座標を5にしてテレポートさせて押し返し壁を設置
+        int _relativeDistance_x = (int)Setup.Player.NearestEnemyPosition.X - (int)Setup.Player.LatestPosition.X;
+        int _relativeDistance_y = (int)Setup.Player.NearestEnemyPosition.Y - (int)Setup.Player.LatestPosition.Y;
+        int _relativeDistance_z = (int)Setup.Player.NearestEnemyPosition.Z - (int)Setup.Player.LatestPosition.Z;
+        int _relativeOffsetDistance_x = 0;
+        int _relativeOffsetDistance_z = 0;
+        int _x = (int)Setup.Player.LatestPosition.X - 3;
+        int _y = (int)Setup.Player.LatestPosition.Y - 3;
+        int _z = (int)Setup.Player.LatestPosition.Z - 3;
+
+        if (((Math.Abs(_relativeDistance_x)) < 4) && (Math.Abs(_relativeDistance_y) < 4 && (Math.Abs(_relativeDistance_z) < 4)))
+        {
+            Console.WriteLine("Near x:{0},y{1},z:{2}", _relativeDistance_x, _relativeDistance_y, _relativeDistance_z);
+            //player座標からオフセットさせる距離を定義
+            if (Math.Abs(_relativeOffsetDistance_x) > Math.Abs(_relativeOffsetDistance_z))
+            {
+                _relativeOffsetDistance_x = (_relativeDistance_x < 0) ? -5 : 5;
+                _relativeOffsetDistance_z = _relativeDistance_z;
+            }
+            else
+            {
+                _relativeOffsetDistance_z = (_relativeDistance_z < 0) ? -5 : 5;
+                _relativeOffsetDistance_x = _relativeDistance_x;
+            }
+            //敵をテレポートさせて押し返す
+            Setup.Command.SendCommand($"execute as @e[x={_x},dx=6,y={_y},dy=6,z={_z},dz=6,type=!player,type=!item,sort=nearest,limit=1] run tp @s {(int)Setup.Player.LatestPosition.X + _relativeOffsetDistance_x} {(int)Setup.Player.NearestEnemyPosition.Y} {(int)Setup.Player.LatestPosition.Z + _relativeOffsetDistance_z}");
+        }
+    }
 }
 
 internal class SandNinja : Ninja
@@ -268,4 +328,5 @@ internal class SandNinja : Ninja
             }
         }
     }
+}
 
