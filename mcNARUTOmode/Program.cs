@@ -26,6 +26,7 @@ internal class Program
             Setup.Player.UpdateStatus();
             Setup.SandNinja.PreventFallDamage();
             Setup.SandNinja.SetFootholdOnJump();
+            Setup.SandNinja.Attack();
             Setup.SandNinja.AutoDefensiveWall();
             //Console.WriteLine(Setup.Player.LatestPosition.Y - Setup.Player.LastPosition.Y);
         }
@@ -169,9 +170,9 @@ internal class PlayerStatus
             // 更新したら前のインスタンスはGCで開放される
             NearestEnemyPosition = new Position(_enemy_pos_x, _enemy_pos_y, _enemy_pos_z);
         }
-        else
+        else if (useRangeValueFlag == false)
         {
-            //近くにいない場合仮の値を設定
+            //広範囲サーチで見つからなかった場合に仮の値を設定(狭範囲の場合は更新しない)
             NearestEnemyPosition = new Position(Setup.Player.LatestPosition.X + 100, Setup.Player.LatestPosition.Y + 100, Setup.Player.LatestPosition.Z + 100);
         }
     }
@@ -188,7 +189,7 @@ internal static class Utility
     }
 }
 
-internal class Ninja
+internal abstract class Ninja
 {
     protected string useBlockName { get; set; } = "barrier";
     //コンストラクタ
@@ -271,7 +272,6 @@ internal class Ninja
 
         if (((Math.Abs(_relativeDistance_x)) < 4) && (Math.Abs(_relativeDistance_y) < 4 && (Math.Abs(_relativeDistance_z) < 4)))
         {
-            Console.WriteLine("Near x:{0},y{1},z:{2}", _relativeDistance_x, _relativeDistance_y, _relativeDistance_z);
             //player座標からオフセットさせる距離を定義
             if (Math.Abs(_relativeOffsetDistance_x) > Math.Abs(_relativeOffsetDistance_z))
             {
@@ -343,6 +343,8 @@ internal class Ninja
             defensiveWallSetFlag = true;
         }
     }
+    internal abstract void Attack();
+    //抽象メソッド。子クラスで実装
 
 }
 
@@ -401,6 +403,46 @@ internal class SandNinja : Ninja
                 footholdBlockSetFlag = true;
             }
         }
+    }
+
+    internal override void Attack()
+    {
+        if (Setup.Player.SelectedItemIsUsed == false)
+        {
+            //アイテムを使っていなければ何もしない
+            return;
+        }
+        //技名表示
+        string title = "{\"text\":\"砂瀑送葬\",\"color\":\"dark_red\"}";
+        Setup.Command.SendCommand($"title @a title {title}");
+        int _x = (int)Setup.Player.LatestPosition.X - 6;
+        int _y = (int)Setup.Player.LatestPosition.Y - 6;
+        int _z = (int)Setup.Player.LatestPosition.Z - 6;
+        //敵を1ブロック上にテレポート
+        Setup.Command.SendCommand($"execute as @e[x={_x},dx=12,y={_y},dy=12,z={_z},dz=12,type=!player,type=!item,sort=nearest,limit=1] run tp @s {(int)Setup.Player.NearestEnemyPosition.X} {(int)Setup.Player.NearestEnemyPosition.Y + 1} {(int)Setup.Player.NearestEnemyPosition.Z}");
+        //敵の足下に3x3の足場設置
+        Setup.Command.SendCommand($"fill {(int)Setup.Player.NearestEnemyPosition.X - 1} {(int)Setup.Player.NearestEnemyPosition.Y} {(int)Setup.Player.NearestEnemyPosition.Z - 1} {(int)Setup.Player.NearestEnemyPosition.X + 1} {(int)Setup.Player.NearestEnemyPosition.Y} {(int)Setup.Player.NearestEnemyPosition.Z + 1} minecraft:{useBlockName}");
+        //砂で囲う(1フレーム目)
+        Setup.Command.SendCommand($"fill {(int)Setup.Player.NearestEnemyPosition.X - 2} {(int)Setup.Player.NearestEnemyPosition.Y} {(int)Setup.Player.NearestEnemyPosition.Z - 1} {(int)Setup.Player.NearestEnemyPosition.X - 2} {(int)Setup.Player.NearestEnemyPosition.Y + 2} {(int)Setup.Player.NearestEnemyPosition.Z - 1} minecraft:{useBlockName}");
+        Setup.Command.SendCommand($"fill {(int)Setup.Player.NearestEnemyPosition.X - 1} {(int)Setup.Player.NearestEnemyPosition.Y} {(int)Setup.Player.NearestEnemyPosition.Z - 2} {(int)Setup.Player.NearestEnemyPosition.X - 1} {(int)Setup.Player.NearestEnemyPosition.Y + 2} {(int)Setup.Player.NearestEnemyPosition.Z - 2} minecraft:{useBlockName}");
+        Setup.Command.SendCommand($"fill {(int)Setup.Player.NearestEnemyPosition.X - 2} {(int)Setup.Player.NearestEnemyPosition.Y} {(int)Setup.Player.NearestEnemyPosition.Z + 1} {(int)Setup.Player.NearestEnemyPosition.X - 2} {(int)Setup.Player.NearestEnemyPosition.Y + 2} {(int)Setup.Player.NearestEnemyPosition.Z + 1} minecraft:{useBlockName}");
+        Setup.Command.SendCommand($"fill {(int)Setup.Player.NearestEnemyPosition.X - 1} {(int)Setup.Player.NearestEnemyPosition.Y} {(int)Setup.Player.NearestEnemyPosition.Z + 2} {(int)Setup.Player.NearestEnemyPosition.X - 1} {(int)Setup.Player.NearestEnemyPosition.Y + 2} {(int)Setup.Player.NearestEnemyPosition.Z + 2} minecraft:{useBlockName}");
+        Setup.Command.SendCommand($"fill {(int)Setup.Player.NearestEnemyPosition.X + 1} {(int)Setup.Player.NearestEnemyPosition.Y} {(int)Setup.Player.NearestEnemyPosition.Z - 2} {(int)Setup.Player.NearestEnemyPosition.X + 1} {(int)Setup.Player.NearestEnemyPosition.Y + 2} {(int)Setup.Player.NearestEnemyPosition.Z - 2} minecraft:{useBlockName}");
+        Setup.Command.SendCommand($"fill {(int)Setup.Player.NearestEnemyPosition.X + 2} {(int)Setup.Player.NearestEnemyPosition.Y} {(int)Setup.Player.NearestEnemyPosition.Z - 1} {(int)Setup.Player.NearestEnemyPosition.X + 2} {(int)Setup.Player.NearestEnemyPosition.Y + 2} {(int)Setup.Player.NearestEnemyPosition.Z - 1} minecraft:{useBlockName}");
+        Setup.Command.SendCommand($"fill {(int)Setup.Player.NearestEnemyPosition.X + 1} {(int)Setup.Player.NearestEnemyPosition.Y} {(int)Setup.Player.NearestEnemyPosition.Z + 2} {(int)Setup.Player.NearestEnemyPosition.X + 1} {(int)Setup.Player.NearestEnemyPosition.Y + 2} {(int)Setup.Player.NearestEnemyPosition.Z + 2} minecraft:{useBlockName}");
+        Setup.Command.SendCommand($"fill {(int)Setup.Player.NearestEnemyPosition.X + 2} {(int)Setup.Player.NearestEnemyPosition.Y} {(int)Setup.Player.NearestEnemyPosition.Z + 1} {(int)Setup.Player.NearestEnemyPosition.X + 2} {(int)Setup.Player.NearestEnemyPosition.Y + 2} {(int)Setup.Player.NearestEnemyPosition.Z + 1} minecraft:{useBlockName}");
+        Setup.Command.Wait(400);
+        //砂で囲う(2フレーム目)
+        Setup.Command.SendCommand($"fill {(int)Setup.Player.NearestEnemyPosition.X - 1} {(int)Setup.Player.NearestEnemyPosition.Y} {(int)Setup.Player.NearestEnemyPosition.Z - 1} {(int)Setup.Player.NearestEnemyPosition.X + 1} {(int)Setup.Player.NearestEnemyPosition.Y + 4} {(int)Setup.Player.NearestEnemyPosition.Z + 1} minecraft:{useBlockName}");
+        //敵をkill
+        Setup.Command.SendCommand($"kill @e[x={_x},dx=12,y={_y},dy=12,z={_z},dz=12,type=!player,type=!item,sort=nearest,limit=1]");
+        Setup.Command.SendCommand($"playsound minecraft:block.sweet_berry_bush.break master @a {(int)Setup.Player.LatestPosition.X} {(int)Setup.Player.LatestPosition.Y} {(int)Setup.Player.LatestPosition.Z} 10.0");
+        Setup.Command.SendCommand($"playsound minecraft:block.shroomlight.break master @a {(int)Setup.Player.LatestPosition.X} {(int)Setup.Player.LatestPosition.Y} {(int)Setup.Player.LatestPosition.Z} 10.0");
+        Setup.Command.Wait(500);
+        //生成したブロックを削除
+        Setup.Command.SendCommand($"fill {(int)Setup.Player.NearestEnemyPosition.X - 2} {(int)Setup.Player.NearestEnemyPosition.Y} {(int)Setup.Player.NearestEnemyPosition.Z - 2} {(int)Setup.Player.NearestEnemyPosition.X + 2} {(int)Setup.Player.NearestEnemyPosition.Y + 4} {(int)Setup.Player.NearestEnemyPosition.Z + 2} minecraft:air[] destroy");
+        //血のエフェクト生成
+        Setup.Command.SendCommand($"particle minecraft:falling_lava {(int)Setup.Player.NearestEnemyPosition.X} {(int)Setup.Player.NearestEnemyPosition.Y} {(int)Setup.Player.NearestEnemyPosition.Z} 2 2 2 0.0 3000 force");
     }
 }
 
