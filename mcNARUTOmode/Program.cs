@@ -213,6 +213,7 @@ internal abstract class Ninja
             {
                 Setup.Command.SendCommand($"fill {preventBlockPosition.X - 1} {preventBlockPosition.Y} {preventBlockPosition.Z - 1} {preventBlockPosition.X + 1} {preventBlockPosition.Y + 1} {preventBlockPosition.Z + 1} minecraft:{useBlockName}");
                 preventBlockSetFlag = true;
+                Console.WriteLine("PreventFallDamage x:" + preventBlockPosition.X + ", y:" + preventBlockPosition.Y + 1 + ", z:" + preventBlockPosition.Z);
             }
         }
         else if (Setup.Player.FallDistance == 0 && preventBlockSetFlag == true)
@@ -247,6 +248,7 @@ internal abstract class Ninja
             {
                 Setup.Command.SendCommand($"fill {footholdBlockPosition.X - 1} {footholdBlockPosition.Y} {footholdBlockPosition.Z - 1} {footholdBlockPosition.X + 1} {footholdBlockPosition.Y} {footholdBlockPosition.Z + 1} minecraft:{useBlockName}");
                 footholdBlockSetFlag = true;
+                Console.WriteLine("SetFootholdOnJump x:" + footholdBlockPosition.X + ", y:" + footholdBlockPosition.Y + ", z:" + footholdBlockPosition.Z);
             }
         }
     }
@@ -261,6 +263,7 @@ internal abstract class Ninja
             Setup.Player.LatestPosition.Z != Setup.Player.LastPosition.Z))
         {
             Setup.Command.SendCommand($"fill {Setup.Player.LastPosition.X - 3} {Setup.Player.LastPosition.Y} {Setup.Player.LastPosition.Z - 3} {Setup.Player.LastPosition.X + 3} {Setup.Player.LastPosition.Y + 1} {Setup.Player.LastPosition.Z + 3} minecraft:air replace minecraft:{useBlockName}");
+            defensiveWallSetFlag = false;
         }
 
         //xz相対位置が3以下なら3以下の座標を5にしてテレポートさせて押し返し壁を設置
@@ -341,6 +344,7 @@ internal abstract class Ninja
                 Setup.Command.SendCommand($"fill {(int)Setup.Player.LatestPosition.X + 1} {(int)Setup.Player.LatestPosition.Y} {(int)Setup.Player.LatestPosition.Z + 3} {(int)Setup.Player.LatestPosition.X + 1} {(int)Setup.Player.LatestPosition.Y + 1} {(int)Setup.Player.LatestPosition.Z + 3} minecraft:{useBlockName}");
             }
             defensiveWallSetFlag = true;
+            Console.WriteLine("AutoDefensiveWall");
         }
     }
     internal abstract void Attack();
@@ -368,6 +372,7 @@ internal class SandNinja : Ninja
                 Setup.Command.SendCommand($"fill {preventBlockPosition.X - 1} {preventBlockPosition.Y} {preventBlockPosition.Z - 1} {preventBlockPosition.X + 1} {preventBlockPosition.Y} {preventBlockPosition.Z + 1} minecraft:barrier");
                 Setup.Command.SendCommand($"fill {preventBlockPosition.X - 1} {preventBlockPosition.Y + 1} {preventBlockPosition.Z - 1} {preventBlockPosition.X + 1} {preventBlockPosition.Y + 1} {preventBlockPosition.Z + 1} minecraft:{useBlockName}");
                 preventBlockSetFlag = true;
+                Console.WriteLine("PreventFallDamage x:" + preventBlockPosition.X + ", y:" + preventBlockPosition.Y + 1 + ", z:" + preventBlockPosition.Z);
             }
         }
         else if (Setup.Player.FallDistance == 0 && preventBlockSetFlag == true)
@@ -401,17 +406,29 @@ internal class SandNinja : Ninja
                 Setup.Command.SendCommand($"fill {footholdBlockPosition.X - 1} {footholdBlockPosition.Y - 1} {footholdBlockPosition.Z - 1} {footholdBlockPosition.X + 1} {footholdBlockPosition.Y - 1} {footholdBlockPosition.Z + 1} minecraft:barrier");
                 Setup.Command.SendCommand($"fill {footholdBlockPosition.X - 1} {footholdBlockPosition.Y} {footholdBlockPosition.Z - 1} {footholdBlockPosition.X + 1} {footholdBlockPosition.Y} {footholdBlockPosition.Z + 1} minecraft:{useBlockName}");
                 footholdBlockSetFlag = true;
+                Console.WriteLine("SetFootholdOnJump x:" + footholdBlockPosition.X + ", y:" + footholdBlockPosition.Y + ", z:" + footholdBlockPosition.Z);
             }
         }
     }
 
     internal override void Attack()
     {
+        //アイテムを使っていなければ何もしない
         if (Setup.Player.SelectedItemIsUsed == false)
         {
-            //アイテムを使っていなければ何もしない
             return;
         }
+        //相対位置が6を超えていたら何もしない
+        int _relativeDistance_x = (int)Setup.Player.NearestEnemyPosition.X - (int)Setup.Player.LatestPosition.X;
+        int _relativeDistance_y = (int)Setup.Player.NearestEnemyPosition.Y - (int)Setup.Player.LatestPosition.Y;
+        int _relativeDistance_z = (int)Setup.Player.NearestEnemyPosition.Z - (int)Setup.Player.LatestPosition.Z;
+        if (((Math.Abs(_relativeDistance_x)) > 6) || (Math.Abs(_relativeDistance_y) > 6 || (Math.Abs(_relativeDistance_z) > 6)))
+        {
+            return;
+        }
+
+        Console.WriteLine("Attack(sand) x:" + (int)Setup.Player.NearestEnemyPosition.X + ", y:" + (int)Setup.Player.NearestEnemyPosition.Y + ", z:" + (int)Setup.Player.NearestEnemyPosition.Z);
+
         //技名表示
         string title = "{\"text\":\"砂瀑送葬\",\"color\":\"dark_red\"}";
         Setup.Command.SendCommand($"title @a title {title}");
@@ -442,7 +459,8 @@ internal class SandNinja : Ninja
         //生成したブロックを削除
         Setup.Command.SendCommand($"fill {(int)Setup.Player.NearestEnemyPosition.X - 2} {(int)Setup.Player.NearestEnemyPosition.Y} {(int)Setup.Player.NearestEnemyPosition.Z - 2} {(int)Setup.Player.NearestEnemyPosition.X + 2} {(int)Setup.Player.NearestEnemyPosition.Y + 4} {(int)Setup.Player.NearestEnemyPosition.Z + 2} minecraft:air[] destroy");
         //血のエフェクト生成
-        Setup.Command.SendCommand($"particle minecraft:falling_lava {(int)Setup.Player.NearestEnemyPosition.X} {(int)Setup.Player.NearestEnemyPosition.Y} {(int)Setup.Player.NearestEnemyPosition.Z} 2 2 2 0.0 3000 force");
+        Setup.Command.Wait(300);
+        Setup.Command.SendCommand($"particle minecraft:falling_lava {(int)Setup.Player.NearestEnemyPosition.X} {(int)Setup.Player.NearestEnemyPosition.Y + 2} {(int)Setup.Player.NearestEnemyPosition.Z} 1.2 1.2 1.2 0.0 3000 force");
     }
 }
 
