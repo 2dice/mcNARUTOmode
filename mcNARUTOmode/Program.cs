@@ -24,11 +24,17 @@ internal class Program
         {
             Setup.Command.Wait(30);
             Setup.Player.UpdateStatus();
-            Setup.SandNinja.PreventFallDamage();
-            Setup.SandNinja.SetFootholdOnJump();
-            Setup.SandNinja.Attack();
-            Setup.SandNinja.AutoDefensiveWall();
-            //Console.WriteLine(Setup.Player.LatestPosition.Y - Setup.Player.LastPosition.Y);
+            switch (Setup.Player.SelectedItemName)
+            {
+                case "minecraft:sand":
+                    Setup.SandNinja.PreventFallDamage();
+                    Setup.SandNinja.SetFootholdOnJump();
+                    Setup.SandNinja.Attack();
+                    Setup.SandNinja.AutoDefensiveWall();
+                    break;
+                default:
+                    break;
+            }
         }
     }
 }
