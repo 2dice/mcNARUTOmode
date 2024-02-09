@@ -2,25 +2,28 @@
 
 namespace mcNARUTOmode;
 
+// 各Ninjaクラスの親クラス。共通で使う処理を実装
 internal abstract class Ninja
 {
+    // 主に使用するブロックを定義
     protected string useBlockName { get; set; } = "barrier";
-    //コンストラクタ
+    // コンストラクタ
     internal Ninja()
     {
         useBlockName = "barrier";
     }
 
-    //設置位置保持用変数
+    // 落下時のダメージ防止用ブロック設置関数
+    // ブロック設置位置保持用変数
     protected Position preventBlockPosition = new(0, 0, 0);
     protected bool preventBlockSetFlag = false;
     internal virtual void PreventFallDamage()
     {
+        // 落下距離が2ブロック以上で足場を設置
         if (Setup.Player.FallDistance >= 2 && preventBlockSetFlag == false)
         {
-            // 更新したら前のインスタンスはGCで開放される
             preventBlockPosition = new Position(Setup.Player.LatestPosition.X, Setup.Player.LatestPosition.Y - 2, Setup.Player.LatestPosition.Z);
-            //配置場所がairかどうか確認
+            // 設置場所がairかどうか確認し、airなら足場を設置
             string _result = Setup.Command.SendCommand($"execute if block {preventBlockPosition.X} {preventBlockPosition.Y} {preventBlockPosition.Z} air");
             if (_result == "Test passed")
             {
@@ -29,6 +32,7 @@ internal abstract class Ninja
                 Console.WriteLine("PreventFallDamage x:" + preventBlockPosition.X + ", y:" + preventBlockPosition.Y + 1 + ", z:" + preventBlockPosition.Z);
             }
         }
+        // 設置したブロックに着地した時に足場ブロックを破壊
         else if (Setup.Player.FallDistance == 0 && preventBlockSetFlag == true)
         {
             Setup.Command.SendCommand($"fill {preventBlockPosition.X - 1} {preventBlockPosition.Y} {preventBlockPosition.Z - 1} {preventBlockPosition.X + 1} {preventBlockPosition.Y + 1} {preventBlockPosition.Z + 1} minecraft:air[] destroy");
@@ -36,10 +40,13 @@ internal abstract class Ninja
         }
     }
 
+    // ジャンプしたときに足場を設置する関数
+    // ブロック設置位置保持用変数
     protected Position footholdBlockPosition = new(0, 0, 0);
     protected bool footholdBlockSetFlag = false;
     internal virtual void SetFootholdOnJump()
     {
+        // 設置した足場からプレイヤーが離れたらブロックを破壊(フラグが1つなので破壊→設置の順に実行)
         if ((Setup.Player.LatestPosition.X <= footholdBlockPosition.X - 2
             || Setup.Player.LatestPosition.X >= footholdBlockPosition.X + 2
             || Setup.Player.LatestPosition.Z <= footholdBlockPosition.Z - 2
@@ -50,12 +57,12 @@ internal abstract class Ninja
             Setup.Command.SendCommand($"fill {footholdBlockPosition.X - 1} {footholdBlockPosition.Y} {footholdBlockPosition.Z - 1} {footholdBlockPosition.X + 1} {footholdBlockPosition.Y} {footholdBlockPosition.Z + 1} minecraft:air[] destroy");
             footholdBlockSetFlag = false;
         }
-
+        // プレイヤーがジャンプしたときに足場を設置
         if (Setup.Player.LatestPosition.Y > Setup.Player.LastPosition.Y && footholdBlockSetFlag == false)
         {
-            // 更新したら前のインスタンスはGCで開放される
             footholdBlockPosition = new Position(Setup.Player.LatestPosition.X, Setup.Player.LatestPosition.Y - 1, Setup.Player.LatestPosition.Z);
-            //配置場所の1つ下がairかどうか確認(普通のジャンプで作らないように)
+            // 設置場所の1つ下がairかどうか確認(普通のジャンプで作らないように)して足場を設置
+            // 一段高くなっているところから前に進みながらジャンプすると設置できる
             string _result = Setup.Command.SendCommand($"execute if block {footholdBlockPosition.X} {footholdBlockPosition.Y - 1} {footholdBlockPosition.Z} air");
             if (_result == "Test passed")
             {
@@ -66,10 +73,11 @@ internal abstract class Ninja
         }
     }
 
+    // 敵が近い場合に敵を遠ざけ防御壁を設置する関数
     protected bool defensiveWallSetFlag = false;
     internal virtual void AutoDefensiveWall()
     {
-        //配置後移動したら破壊
+        // ブロック設置後にプレイヤーが移動したら破壊する
         if (defensiveWallSetFlag == true &&
             (Setup.Player.LatestPosition.X != Setup.Player.LastPosition.X ||
             Setup.Player.LatestPosition.Y != Setup.Player.LastPosition.Y ||
@@ -79,17 +87,17 @@ internal abstract class Ninja
             defensiveWallSetFlag = false;
         }
 
-        //xz相対位置が3以下なら3以下の座標を5にしてテレポートさせて押し返し壁を設置
+        // xz相対位置が3以下なら3以下の座標を5にしてテレポートさせて押し返し、壁を設置する
         int _relativeDistance_x = (int)Setup.Player.NearestEnemyPosition.X - (int)Setup.Player.LatestPosition.X;
         int _relativeDistance_y = (int)Setup.Player.NearestEnemyPosition.Y - (int)Setup.Player.LatestPosition.Y;
         int _relativeDistance_z = (int)Setup.Player.NearestEnemyPosition.Z - (int)Setup.Player.LatestPosition.Z;
         int _relativeOffsetDistance_x = 0;
         int _relativeOffsetDistance_z = 0;
-
         if (((Math.Abs(_relativeDistance_x)) < 4) && (Math.Abs(_relativeDistance_y) < 4 && (Math.Abs(_relativeDistance_z) < 4)))
         {
-            //player座標からオフセットさせる距離を定義
-            if (Math.Abs(_relativeOffsetDistance_x) > Math.Abs(_relativeOffsetDistance_z))
+            // 相対座標から敵をオフセットさせる距離を定義
+            // x,z座標のうち離れている方に押し返す
+            if (Math.Abs(_relativeDistance_x) > Math.Abs(_relativeDistance_z))
             {
                 _relativeOffsetDistance_x = (_relativeDistance_x < 0) ? -5 : 5;
                 _relativeOffsetDistance_z = _relativeDistance_z;
@@ -99,59 +107,60 @@ internal abstract class Ninja
                 _relativeOffsetDistance_z = (_relativeDistance_z < 0) ? -5 : 5;
                 _relativeOffsetDistance_x = _relativeDistance_x;
             }
-            //敵をテレポートさせて押し返す
+            // 索敵範囲を-3から+3(-3+6)に指定し敵をテレポートで押し返す
             int _x = (int)Setup.Player.LatestPosition.X - 3;
             int _y = (int)Setup.Player.LatestPosition.Y - 3;
             int _z = (int)Setup.Player.LatestPosition.Z - 3;
             Setup.Command.SendCommand($"execute as @e[x={_x},dx=6,y={_y},dy=6,z={_z},dz=6,type=!player,type=!item,sort=nearest,limit=1] run tp @s {(int)Setup.Player.LatestPosition.X + _relativeOffsetDistance_x} {(int)Setup.Player.NearestEnemyPosition.Y} {(int)Setup.Player.LatestPosition.Z + _relativeOffsetDistance_z}");
+            // 敵の方向から防御壁を設置する方向を決定
             var (_yaw, _pitch) = Utility.GetRotationFromRelative(_relativeDistance_x, _relativeDistance_y, _relativeDistance_z);
-            //敵の方を向く
-            //Setup.Command.SendCommand($"teleport @p {(int)Setup.Player.LatestPosition.X} {(int)Setup.Player.LatestPosition.Y} {(int)Setup.Player.LatestPosition.Z} {_yaw} {_pitch}");
-            //防御壁配置
+            // 敵の方を向く
+            // Setup.Command.SendCommand($"teleport @p {(int)Setup.Player.LatestPosition.X} {(int)Setup.Player.LatestPosition.Y} {(int)Setup.Player.LatestPosition.Z} {_yaw} {_pitch}");
+            // 防御壁設置
             if ((_yaw < 22.5 && _yaw >= 0) || (_yaw > -22.5 && _yaw <= 0))
             {
-                //南
+                // 南
                 Setup.Command.SendCommand($"fill {(int)Setup.Player.LatestPosition.X - 1} {(int)Setup.Player.LatestPosition.Y} {(int)Setup.Player.LatestPosition.Z + 3} {(int)Setup.Player.LatestPosition.X + 1} {(int)Setup.Player.LatestPosition.Y + 1} {(int)Setup.Player.LatestPosition.Z + 3} minecraft:{useBlockName}");
             }
             else if (_yaw >= 22.5 && _yaw < 67.5)
             {
-                //南西
+                // 南西
                 Setup.Command.SendCommand($"fill {(int)Setup.Player.LatestPosition.X - 1} {(int)Setup.Player.LatestPosition.Y} {(int)Setup.Player.LatestPosition.Z + 3} {(int)Setup.Player.LatestPosition.X - 1} {(int)Setup.Player.LatestPosition.Y + 1} {(int)Setup.Player.LatestPosition.Z + 3} minecraft:{useBlockName}");
                 Setup.Command.SendCommand($"fill {(int)Setup.Player.LatestPosition.X - 2} {(int)Setup.Player.LatestPosition.Y} {(int)Setup.Player.LatestPosition.Z + 2} {(int)Setup.Player.LatestPosition.X - 2} {(int)Setup.Player.LatestPosition.Y + 1} {(int)Setup.Player.LatestPosition.Z + 2} minecraft:{useBlockName}");
                 Setup.Command.SendCommand($"fill {(int)Setup.Player.LatestPosition.X - 3} {(int)Setup.Player.LatestPosition.Y} {(int)Setup.Player.LatestPosition.Z + 1} {(int)Setup.Player.LatestPosition.X - 3} {(int)Setup.Player.LatestPosition.Y + 1} {(int)Setup.Player.LatestPosition.Z + 1} minecraft:{useBlockName}");
             }
             else if (_yaw >= 67.5 && _yaw < 112.5)
             {
-                //西
+                // 西
                 Setup.Command.SendCommand($"fill {(int)Setup.Player.LatestPosition.X - 3} {(int)Setup.Player.LatestPosition.Y} {(int)Setup.Player.LatestPosition.Z - 1} {(int)Setup.Player.LatestPosition.X - 3} {(int)Setup.Player.LatestPosition.Y + 1} {(int)Setup.Player.LatestPosition.Z + 1} minecraft:{useBlockName}");
             }
             else if (_yaw >= 112.5 && _yaw < 157.5)
             {
-                //北西
+                // 北西
                 Setup.Command.SendCommand($"fill {(int)Setup.Player.LatestPosition.X - 3} {(int)Setup.Player.LatestPosition.Y} {(int)Setup.Player.LatestPosition.Z - 1} {(int)Setup.Player.LatestPosition.X - 3} {(int)Setup.Player.LatestPosition.Y + 1} {(int)Setup.Player.LatestPosition.Z - 1} minecraft:{useBlockName}");
                 Setup.Command.SendCommand($"fill {(int)Setup.Player.LatestPosition.X - 2} {(int)Setup.Player.LatestPosition.Y} {(int)Setup.Player.LatestPosition.Z - 2} {(int)Setup.Player.LatestPosition.X - 2} {(int)Setup.Player.LatestPosition.Y + 1} {(int)Setup.Player.LatestPosition.Z - 2} minecraft:{useBlockName}");
                 Setup.Command.SendCommand($"fill {(int)Setup.Player.LatestPosition.X - 1} {(int)Setup.Player.LatestPosition.Y} {(int)Setup.Player.LatestPosition.Z - 3} {(int)Setup.Player.LatestPosition.X - 1} {(int)Setup.Player.LatestPosition.Y + 1} {(int)Setup.Player.LatestPosition.Z - 3} minecraft:{useBlockName}");
             }
             else if ((_yaw >= 157.5 && _yaw <= 180) || (_yaw >= -180 && _yaw < -157.5))
             {
-                //北
+                // 北
                 Setup.Command.SendCommand($"fill {(int)Setup.Player.LatestPosition.X - 1} {(int)Setup.Player.LatestPosition.Y} {(int)Setup.Player.LatestPosition.Z - 3} {(int)Setup.Player.LatestPosition.X + 1} {(int)Setup.Player.LatestPosition.Y + 1} {(int)Setup.Player.LatestPosition.Z - 3} minecraft:{useBlockName}");
             }
             else if (_yaw >= -157.5 && _yaw < -112.5)
             {
-                //北東
+                // 北東
                 Setup.Command.SendCommand($"fill {(int)Setup.Player.LatestPosition.X + 1} {(int)Setup.Player.LatestPosition.Y} {(int)Setup.Player.LatestPosition.Z - 3} {(int)Setup.Player.LatestPosition.X + 1} {(int)Setup.Player.LatestPosition.Y + 1} {(int)Setup.Player.LatestPosition.Z - 3} minecraft:{useBlockName}");
                 Setup.Command.SendCommand($"fill {(int)Setup.Player.LatestPosition.X + 2} {(int)Setup.Player.LatestPosition.Y} {(int)Setup.Player.LatestPosition.Z - 2} {(int)Setup.Player.LatestPosition.X + 2} {(int)Setup.Player.LatestPosition.Y + 1} {(int)Setup.Player.LatestPosition.Z - 2} minecraft:{useBlockName}");
                 Setup.Command.SendCommand($"fill {(int)Setup.Player.LatestPosition.X + 3} {(int)Setup.Player.LatestPosition.Y} {(int)Setup.Player.LatestPosition.Z - 1} {(int)Setup.Player.LatestPosition.X + 3} {(int)Setup.Player.LatestPosition.Y + 1} {(int)Setup.Player.LatestPosition.Z - 1} minecraft:{useBlockName}");
             }
             else if (_yaw >= -112.5 && _yaw < -67.5)
             {
-                //東
+                // 東
                 Setup.Command.SendCommand($"fill {(int)Setup.Player.LatestPosition.X + 3} {(int)Setup.Player.LatestPosition.Y} {(int)Setup.Player.LatestPosition.Z - 1} {(int)Setup.Player.LatestPosition.X + 3} {(int)Setup.Player.LatestPosition.Y + 1} {(int)Setup.Player.LatestPosition.Z + 1} minecraft:{useBlockName}");
             }
             else
             {
-                //南東
+                // 南東
                 Setup.Command.SendCommand($"fill {(int)Setup.Player.LatestPosition.X + 3} {(int)Setup.Player.LatestPosition.Y} {(int)Setup.Player.LatestPosition.Z + 1} {(int)Setup.Player.LatestPosition.X + 3} {(int)Setup.Player.LatestPosition.Y + 1} {(int)Setup.Player.LatestPosition.Z + 1} minecraft:{useBlockName}");
                 Setup.Command.SendCommand($"fill {(int)Setup.Player.LatestPosition.X + 2} {(int)Setup.Player.LatestPosition.Y} {(int)Setup.Player.LatestPosition.Z + 2} {(int)Setup.Player.LatestPosition.X + 2} {(int)Setup.Player.LatestPosition.Y + 1} {(int)Setup.Player.LatestPosition.Z + 2} minecraft:{useBlockName}");
                 Setup.Command.SendCommand($"fill {(int)Setup.Player.LatestPosition.X + 1} {(int)Setup.Player.LatestPosition.Y} {(int)Setup.Player.LatestPosition.Z + 3} {(int)Setup.Player.LatestPosition.X + 1} {(int)Setup.Player.LatestPosition.Y + 1} {(int)Setup.Player.LatestPosition.Z + 3} minecraft:{useBlockName}");
@@ -160,25 +169,29 @@ internal abstract class Ninja
             Console.WriteLine("AutoDefensiveWall");
         }
     }
-    internal abstract void Attack();
-    //抽象メソッド。子クラスで実装
 
+    internal abstract void Attack();
+    // 抽象メソッド。子クラスで実装
 }
 
+// 砂ブロックを手に持っているときに使用されるクラス(我愛羅)
 internal class SandNinja : Ninja
 {
+    // コンストラクタ
     internal SandNinja()
     {
+        // 主に使用するブロックを定義
         useBlockName = "sand";
-        //useBlockName = "glass";
     }
+
+    // 落下時のダメージ防止用ブロック設置関数
+    // 砂ブロックは空中に設置できないため砂の下にbarrierブロックを設置
     internal override void PreventFallDamage()
     {
         if (Setup.Player.FallDistance >= 2 && preventBlockSetFlag == false)
         {
-            // 更新したら前のインスタンスはGCで開放される
             preventBlockPosition = new Position(Setup.Player.LatestPosition.X, Setup.Player.LatestPosition.Y - 2, Setup.Player.LatestPosition.Z);
-            //配置場所がairかどうか確認
+            // 設置場所がairかどうか確認し、airなら足場を設置
             string _result = Setup.Command.SendCommand($"execute if block {preventBlockPosition.X} {preventBlockPosition.Y} {preventBlockPosition.Z} air");
             if (_result == "Test passed")
             {
@@ -188,6 +201,7 @@ internal class SandNinja : Ninja
                 Console.WriteLine("PreventFallDamage x:" + preventBlockPosition.X + ", y:" + preventBlockPosition.Y + 1 + ", z:" + preventBlockPosition.Z);
             }
         }
+        // 設置したブロックに着地した時に足場ブロックを破壊
         else if (Setup.Player.FallDistance == 0 && preventBlockSetFlag == true)
         {
             Setup.Command.SendCommand($"fill {preventBlockPosition.X - 1} {preventBlockPosition.Y} {preventBlockPosition.Z - 1} {preventBlockPosition.X + 1} {preventBlockPosition.Y + 1} {preventBlockPosition.Z + 1} minecraft:air[] destroy");
@@ -195,8 +209,11 @@ internal class SandNinja : Ninja
         }
     }
 
+    // ジャンプしたときに足場を設置する関数
+    // 砂ブロックは空中に設置できないため砂の下にbarrierブロックを設置
     internal override void SetFootholdOnJump()
     {
+        // 設置した足場からプレイヤーが離れたらブロックを破壊(フラグが1つなので破壊→設置の順に実行)
         if ((Setup.Player.LatestPosition.X <= footholdBlockPosition.X - 2
             || Setup.Player.LatestPosition.X >= footholdBlockPosition.X + 2
             || Setup.Player.LatestPosition.Z <= footholdBlockPosition.Z - 2
@@ -207,12 +224,12 @@ internal class SandNinja : Ninja
             Setup.Command.SendCommand($"fill {footholdBlockPosition.X - 1} {footholdBlockPosition.Y - 1} {footholdBlockPosition.Z - 1} {footholdBlockPosition.X + 1} {footholdBlockPosition.Y} {footholdBlockPosition.Z + 1} minecraft:air[] destroy");
             footholdBlockSetFlag = false;
         }
-
+        // プレイヤーがジャンプしたときに足場を設置
         if (Setup.Player.LatestPosition.Y > Setup.Player.LastPosition.Y && footholdBlockSetFlag == false)
         {
-            // 更新したら前のインスタンスはGCで開放される
             footholdBlockPosition = new Position(Setup.Player.LatestPosition.X, Setup.Player.LatestPosition.Y - 1, Setup.Player.LatestPosition.Z);
-            //配置場所の1つ下がairかどうか確認
+            // 設置場所の1つ下がairかどうか確認(普通のジャンプで作らないように)して足場を設置
+            // 一段高くなっているところから前に進みながらジャンプすると設置できる
             string _result = Setup.Command.SendCommand($"execute if block {footholdBlockPosition.X} {footholdBlockPosition.Y - 1} {footholdBlockPosition.Z} air");
             if (_result == "Test passed")
             {
@@ -224,14 +241,15 @@ internal class SandNinja : Ninja
         }
     }
 
+    // 攻撃関数(砂瀑送葬)
     internal override void Attack()
     {
-        //アイテムを使っていなければ何もしない
+        // アイテムを使っていなければ何もしない
         if (Setup.Player.SelectedItemIsUsed == false)
         {
             return;
         }
-        //相対位置が6を超えていたら何もしない
+        // 相対位置が6を超えていたら何もしない
         int _relativeDistance_x = (int)Setup.Player.NearestEnemyPosition.X - (int)Setup.Player.LatestPosition.X;
         int _relativeDistance_y = (int)Setup.Player.NearestEnemyPosition.Y - (int)Setup.Player.LatestPosition.Y;
         int _relativeDistance_z = (int)Setup.Player.NearestEnemyPosition.Z - (int)Setup.Player.LatestPosition.Z;
@@ -242,17 +260,17 @@ internal class SandNinja : Ninja
 
         Console.WriteLine("Attack(sand) x:" + (int)Setup.Player.NearestEnemyPosition.X + ", y:" + (int)Setup.Player.NearestEnemyPosition.Y + ", z:" + (int)Setup.Player.NearestEnemyPosition.Z);
 
-        //技名表示
+        // 技名表示
         string title = "{\"text\":\"砂瀑送葬\",\"color\":\"dark_red\"}";
         Setup.Command.SendCommand($"title @a title {title}");
+        // 索敵範囲を-6から+6(-6+12)に指定し敵をテレポートで1ブロック上に浮かせる
         int _x = (int)Setup.Player.LatestPosition.X - 6;
         int _y = (int)Setup.Player.LatestPosition.Y - 6;
         int _z = (int)Setup.Player.LatestPosition.Z - 6;
-        //敵を1ブロック上にテレポート
         Setup.Command.SendCommand($"execute as @e[x={_x},dx=12,y={_y},dy=12,z={_z},dz=12,type=!player,type=!item,sort=nearest,limit=1] run tp @s {(int)Setup.Player.NearestEnemyPosition.X} {(int)Setup.Player.NearestEnemyPosition.Y + 1} {(int)Setup.Player.NearestEnemyPosition.Z}");
-        //敵の足下に3x3の足場設置
+        // 敵の足下に3x3の足場設置
         Setup.Command.SendCommand($"fill {(int)Setup.Player.NearestEnemyPosition.X - 1} {(int)Setup.Player.NearestEnemyPosition.Y} {(int)Setup.Player.NearestEnemyPosition.Z - 1} {(int)Setup.Player.NearestEnemyPosition.X + 1} {(int)Setup.Player.NearestEnemyPosition.Y} {(int)Setup.Player.NearestEnemyPosition.Z + 1} minecraft:{useBlockName}");
-        //砂で囲う(1フレーム目)
+        // 砂で囲う(1フレーム目)
         Setup.Command.SendCommand($"fill {(int)Setup.Player.NearestEnemyPosition.X - 2} {(int)Setup.Player.NearestEnemyPosition.Y} {(int)Setup.Player.NearestEnemyPosition.Z - 1} {(int)Setup.Player.NearestEnemyPosition.X - 2} {(int)Setup.Player.NearestEnemyPosition.Y + 2} {(int)Setup.Player.NearestEnemyPosition.Z - 1} minecraft:{useBlockName}");
         Setup.Command.SendCommand($"fill {(int)Setup.Player.NearestEnemyPosition.X - 1} {(int)Setup.Player.NearestEnemyPosition.Y} {(int)Setup.Player.NearestEnemyPosition.Z - 2} {(int)Setup.Player.NearestEnemyPosition.X - 1} {(int)Setup.Player.NearestEnemyPosition.Y + 2} {(int)Setup.Player.NearestEnemyPosition.Z - 2} minecraft:{useBlockName}");
         Setup.Command.SendCommand($"fill {(int)Setup.Player.NearestEnemyPosition.X - 2} {(int)Setup.Player.NearestEnemyPosition.Y} {(int)Setup.Player.NearestEnemyPosition.Z + 1} {(int)Setup.Player.NearestEnemyPosition.X - 2} {(int)Setup.Player.NearestEnemyPosition.Y + 2} {(int)Setup.Player.NearestEnemyPosition.Z + 1} minecraft:{useBlockName}");
@@ -262,16 +280,16 @@ internal class SandNinja : Ninja
         Setup.Command.SendCommand($"fill {(int)Setup.Player.NearestEnemyPosition.X + 1} {(int)Setup.Player.NearestEnemyPosition.Y} {(int)Setup.Player.NearestEnemyPosition.Z + 2} {(int)Setup.Player.NearestEnemyPosition.X + 1} {(int)Setup.Player.NearestEnemyPosition.Y + 2} {(int)Setup.Player.NearestEnemyPosition.Z + 2} minecraft:{useBlockName}");
         Setup.Command.SendCommand($"fill {(int)Setup.Player.NearestEnemyPosition.X + 2} {(int)Setup.Player.NearestEnemyPosition.Y} {(int)Setup.Player.NearestEnemyPosition.Z + 1} {(int)Setup.Player.NearestEnemyPosition.X + 2} {(int)Setup.Player.NearestEnemyPosition.Y + 2} {(int)Setup.Player.NearestEnemyPosition.Z + 1} minecraft:{useBlockName}");
         Setup.Command.Wait(400);
-        //砂で囲う(2フレーム目)
+        // 砂で囲う(2フレーム目)
         Setup.Command.SendCommand($"fill {(int)Setup.Player.NearestEnemyPosition.X - 1} {(int)Setup.Player.NearestEnemyPosition.Y} {(int)Setup.Player.NearestEnemyPosition.Z - 1} {(int)Setup.Player.NearestEnemyPosition.X + 1} {(int)Setup.Player.NearestEnemyPosition.Y + 4} {(int)Setup.Player.NearestEnemyPosition.Z + 1} minecraft:{useBlockName}");
-        //敵をkill
+        // 敵をkill
         Setup.Command.SendCommand($"kill @e[x={_x},dx=12,y={_y},dy=12,z={_z},dz=12,type=!player,type=!item,sort=nearest,limit=1]");
         Setup.Command.SendCommand($"playsound minecraft:block.sweet_berry_bush.break master @a {(int)Setup.Player.LatestPosition.X} {(int)Setup.Player.LatestPosition.Y} {(int)Setup.Player.LatestPosition.Z} 10.0");
         Setup.Command.SendCommand($"playsound minecraft:block.shroomlight.break master @a {(int)Setup.Player.LatestPosition.X} {(int)Setup.Player.LatestPosition.Y} {(int)Setup.Player.LatestPosition.Z} 10.0");
         Setup.Command.Wait(500);
-        //生成したブロックを削除
+        // 生成したブロックを削除
         Setup.Command.SendCommand($"fill {(int)Setup.Player.NearestEnemyPosition.X - 2} {(int)Setup.Player.NearestEnemyPosition.Y} {(int)Setup.Player.NearestEnemyPosition.Z - 2} {(int)Setup.Player.NearestEnemyPosition.X + 2} {(int)Setup.Player.NearestEnemyPosition.Y + 4} {(int)Setup.Player.NearestEnemyPosition.Z + 2} minecraft:air[] destroy");
-        //血のエフェクト生成
+        // 血のエフェクト生成
         Setup.Command.Wait(300);
         Setup.Command.SendCommand($"particle minecraft:falling_lava {(int)Setup.Player.NearestEnemyPosition.X} {(int)Setup.Player.NearestEnemyPosition.Y + 2} {(int)Setup.Player.NearestEnemyPosition.Z} 1.2 1.2 1.2 0.0 3000 force");
     }
