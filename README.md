@@ -6,12 +6,13 @@
 ### 操作方法
 プログラムを実行してマインクラフト内で操作します。  
 プレイヤーが持っているブロックに応じて以下の処理を実行します。  
-<br>
 
 **例：砂ブロックを持っている場合**  
 - ジャンプしたときに足場を作る
 - 落下したときにダメージを受けないように足場を作る
 - 砂ブロックを置いたとき、近くにいる敵に砂による攻撃を行う
+
+https://github.com/2dice/mcNARUTOmode/assets/1633068/8727b0fe-d734-415e-8457-fcdf5567f704
 
 ## 実行環境
 このプロジェクトはtakunologyさんの[MinecraftConnection](https://github.com/takunology/MinecraftConnection/tree/main?tab=readme-ov-file)を活用して実装しています。  
